@@ -1351,7 +1351,7 @@ bundle. `packaging/make-release-tarball.sh` requires the three files.
 
 `install.py` (thin wrapper: `install.sh`) downloads
 `rchromium-arm64.tar.gz` from the latest GitHub release of
-`rainygirl/haiku-rchromium-arm64`, verifies it against the `.sha256` published
+`rainygirl/renkuos-rchromium-arm64`, verifies it against the `.sha256` published
 next to it, unpacks it into `~/config/non-packaged/apps/RChromium/`, and then:
 
 1. writes a launcher script `RChromium/R Chromium` (see "Launcher flags"),

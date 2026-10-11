@@ -75,7 +75,7 @@ Without a checkout, fetch it with openssl (the minimum image has no curl, wget
 or python3):
 
 ```sh
-printf 'GET /rainygirl/haiku-rchromium-arm64/main/install.sh HTTP/1.0\r\nHost: raw.githubusercontent.com\r\n\r\n' | openssl s_client -quiet -connect raw.githubusercontent.com:443 -servername raw.githubusercontent.com 2>/dev/null > /tmp/i.raw
+printf 'GET /rainygirl/renkuos-rchromium-arm64/main/install.sh HTTP/1.0\r\nHost: raw.githubusercontent.com\r\n\r\n' | openssl s_client -quiet -connect raw.githubusercontent.com:443 -servername raw.githubusercontent.com 2>/dev/null > /tmp/i.raw
 { while IFS= read -r l; do [ "$l" = $'\r' ] && break; done; cat; } < /tmp/i.raw > /tmp/install.sh
 sh /tmp/install.sh
 ```

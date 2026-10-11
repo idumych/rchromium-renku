@@ -3,7 +3,7 @@
 
 One-line install on the device (Haiku ships python3, not curl/tar):
 
-    python3 -c "import urllib.request as u;exec(u.urlopen('https://raw.githubusercontent.com/rainygirl/haiku-rchromium-arm64/main/install.py').read())"
+    python3 -c "import urllib.request as u;exec(u.urlopen('https://raw.githubusercontent.com/rainygirl/renkuos-rchromium-arm64/main/install.py').read())"
 
 Or from a checkout:  ./install.sh [--uninstall] [--prefix DIR] [--file TARBALL]
 
@@ -23,7 +23,7 @@ import sys
 import tarfile
 import urllib.request
 
-REPO = "rainygirl/haiku-rchromium-arm64"
+REPO = "rainygirl/renkuos-rchromium-arm64"
 ASSET = "rchromium-arm64.tar.gz"
 URL = "https://github.com/%s/releases/latest/download/%s" % (REPO, ASSET)
 APP = "R Chromium"
