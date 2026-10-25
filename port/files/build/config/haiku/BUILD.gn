@@ -1,0 +1,40 @@
+# Copyright 2026 The RENKU project
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+import("//build/config/haiku/haiku.gni")
+
+# Haiku's headers are not laid out the way any other POSIX system's are:
+# every kit has its own directory, and the gnu and bsd directories wrap the
+# POSIX ones with #include_next, so they must come first. clang's Haiku driver
+# knows that layout under --sysroot, so a cross build only has to name the
+# sysroot.
+config("sdk") {
+  if (haiku_sysroot != "") {
+    cflags = [ "--sysroot=" + rebase_path(haiku_sysroot, root_build_dir) ]
+    ldflags = [ "--sysroot=" + rebase_path(haiku_sysroot, root_build_dir) ]
+  }
+  if (haiku_gcc_lib_dir != "") {
+    ldflags += [
+      "-B" + rebase_path(haiku_gcc_lib_dir, root_build_dir),
+      "-L" + rebase_path(haiku_gcc_lib_dir, root_build_dir),
+    ]
+  }
+
+  # Haiku hides its BSD and GNU extensions -- memrchr, strchrnul,
+  # pthread_getattr_np -- behind _DEFAULT_SOURCE, and anything that defines
+  # _POSIX_C_SOURCE or _XOPEN_SOURCE turns that off.
+  defines = [ "_DEFAULT_SOURCE" ]
+}
+
+# Haiku's C library is libroot; there is no separate libpthread, librt, libdl
+# or libm. Sockets live in libnetwork, and the BSD and GNU extensions that
+# _DEFAULT_SOURCE exposes in libbsd and libgnu.
+config("runtime_library") {
+  libs = [
+    "root",
+    "network",
+    "bsd",
+    "gnu",
+  ]
+}

@@ -215,9 +215,10 @@ EDITS = [
 ]
 
 
-def main():
+def main(src):
     applied = skipped = 0
     for path, old, new in EDITS:
+        path = os.path.join(src, path)
         s = open(path).read()
         # An edit is done when its replacement text is present verbatim, not
         # merely when the file mentions Haiku somewhere.
@@ -235,4 +236,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    main(sys.argv[1] if len(sys.argv) > 1 else ".")

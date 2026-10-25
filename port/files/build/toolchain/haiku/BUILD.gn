@@ -1,0 +1,25 @@
+# Copyright 2026 The RENKU project
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+#
+# Toolchains for building Chromium against Haiku: Chromium's own clang and
+# lld, run with --target=<cpu>-unknown-haiku (compiler_cpu_abi.gn) and the
+# sysroot from //build/config/haiku:sdk. The same toolchains serve a native
+# build on Haiku, with the clang from the image.
+
+import("//build/config/haiku/haiku.gni")
+import("//build/toolchain/gcc_toolchain.gni")
+
+clang_toolchain("clang_arm64") {
+  toolchain_args = {
+    current_cpu = "arm64"
+    current_os = "haiku"
+  }
+}
+
+clang_toolchain("clang_x64") {
+  toolchain_args = {
+    current_cpu = "x64"
+    current_os = "haiku"
+  }
+}

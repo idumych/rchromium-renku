@@ -67,6 +67,15 @@ for f in $(cd "$HERE/files" && find . -type f); do
 	echo "  added ${f#./}"
 done
 
+# The gn platform lists. These were fixed by autofix.py/fixdeps.py in a
+# fix-and-repeat loop and never captured in a script; haiku-port.diff holds
+# them. Hunks the scripts above already applied are skipped (--forward), so
+# do this last. Three hunks fail as already applied in a different form
+# (signin, screen_ai, unowned_user_data). Verified on a clean 154.0.8036.0
+# checkout, x64, 2026-10-25: gn gen succeeds after this.
+patch -d "$SRC" -p1 --forward --no-backup-if-mismatch -r - \
+	< "$HERE/haiku-port.diff" > /dev/null || true
+
 # 6. Chromium's extension system in content_shell (docs/EXTENSIONS.md). The
 #    embedder came in with files/ above; the schemas of the //chrome APIs it
 #    implements are taken from this checkout, and port-shell-extensions.py
