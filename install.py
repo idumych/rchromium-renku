@@ -149,7 +149,7 @@ def link(target, path):
     os.symlink(target, path)
 
 
-LAUNCH_FLAGS = ("--ozone-platform=haiku --no-sandbox --disable-gpu "
+LAUNCH_FLAGS = ("--ozone-platform=haiku --disable-gpu "
                 "--in-process-gpu --disable-gpu-compositing")
 
 

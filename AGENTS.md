@@ -2079,3 +2079,37 @@ So the launchers drop `--single-process`, and:
   alert. `RCH_CHILD_DEBUGGER=1` keeps the alert for debugging.
 
 arm64 was not retested.
+
+## Renderers drop root (2026-10-25)
+
+Haiku has no seccomp-bpf, namespaces or broker, so the launchers passed
+`--no-sandbox`, and `RendererMainPlatformDelegate::EnableSandbox()` returned
+false (which stops the renderer's run loop, so the flag was mandatory). Every
+Haiku application runs as uid 0, but the kernel does check POSIX
+credentials. Measured with a probe on R1/beta6 hrev59866, a team that drops
+from root to uid/gid 65534:
+
+| | |
+|---|---|
+| get root back (`setuid(0)`) | denied |
+| write or create files owned by the user (uid 0, 0644/0755) | denied |
+| signal or kill a uid-0 team | denied |
+| list or clone a uid-0 team's areas | denied |
+| read world-readable files (most of the disk) | allowed |
+| list a uid-0 team's ports and `write_port()` to them | allowed |
+| open an internet socket, fork | allowed |
+| create Chromium-style shared memory in `/tmp` (drwxrwxrwx) | works |
+
+Credentials are per team: a thread created before the drop loses root too.
+
+So `EnableSandbox()` now drops to uid/gid 65534 (setgroups, setgid, setuid,
+then checks that root cannot be regained; any failure is fatal), and the
+launchers no longer pass `--no-sandbox`. A renderer started by a non-root
+user keeps that user's rights and says so in the log.
+
+This is a mitigation, not a sandbox. Port writes are the hole that matters:
+a compromised renderer can send BMessages to Tracker or the registrar and
+have them launch or delete anything. Closing it needs a per-team
+restriction in the kernel (no ports outside an allowlist, no new sockets,
+limited file access), which neither Haiku nor Renku has; that is the next
+step, for Renku.

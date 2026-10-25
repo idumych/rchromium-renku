@@ -201,7 +201,6 @@ bool WriteLauncher(const base::FilePath& dir,
   script += "ulimit -n 8192 2>/dev/null\n\n";
   script += "exec \"$SHELL_BIN\" \\\n";
   script += "\t--ozone-platform=haiku \\\n";
-  script += "\t--no-sandbox \\\n";
   script += "\t--disable-gpu \\\n";
   script += "\t--in-process-gpu \\\n";
   script += "\t--disable-gpu-compositing \\\n";

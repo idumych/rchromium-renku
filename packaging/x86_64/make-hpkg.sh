@@ -40,7 +40,7 @@ export LIBRARY_PATH
 ulimit -n 8192 2>/dev/null
 # No video capture backend on Haiku: the fake device keeps pages that list
 # media devices from dereferencing a missing factory.
-exec ./content_shell --ozone-platform=haiku --no-sandbox \
+exec ./content_shell --ozone-platform=haiku \
 	--disable-gpu --in-process-gpu --disable-gpu-compositing \
 	--use-fake-device-for-media-stream "$@"
 EOF
