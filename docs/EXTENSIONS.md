@@ -81,15 +81,15 @@ This work was first written and tested on Linux, and ported here on
 
 **None of this has been built or run on Haiku yet.** Two differences matter:
 
-- **Single process.** R Chromium's launcher passes `--single-process`, because
-  frames from out-of-process renderers do not reach the window yet (AGENTS.md,
-  "Launcher flags"). In that mode content puts every frame into its one
-  in-process renderer: `IsSuitableHost()` always says yes, and the process
-  limit is always reached. So extension pages and the service worker share
-  the renderer with web pages. `SiteInstanceGotProcessAndSite()` still records
-  that process as the extension's in the `ProcessMap`, which is what lets
-  `CanCommitURL()` accept `chrome-extension://` URLs. There is no isolation
-  between extensions and pages, but `--no-sandbox` already gives none.
+- **Processes.** The launchers no longer pass `--single-process` (see
+  AGENTS.md, "Multi-process again"), so extensions get their own renderer
+  processes, as they did there. Run with `--single-process`, content puts
+  every frame into its one in-process renderer: `IsSuitableHost()` always
+  says yes, and the process limit is always reached. Extension pages and the
+  service worker then share the renderer with web pages.
+  `SiteInstanceGotProcessAndSite()` still records that process as the
+  extension's in the `ProcessMap`, which is what lets `CanCommitURL()` accept
+  `chrome-extension://` URLs.
 - **The extension and loader paths.** Bundled extensions are loaded from
   `extensions/` next to the binary (`/boot/system/apps/RChromium/extensions`),
   each through a writable copy in the profile's `Bundled Extensions`. User

@@ -2043,3 +2043,39 @@ content_shell, redeployed to csdata, and confirmed on the renku-arm64 desktop th
 `./content_shell https://news.naver.com` (NO flags) renders news.naver.com fully
 (broadcaster logos + LIVE video thumbnail images loaded), zero crashes. The x86
 session's link-corruption fix is unrelated; arm64 never had a blob problem.
+
+## Multi-process again (2026-10-25)
+
+The launchers passed `--single-process` because, on the 2026-09-13/14
+builds, frames from out-of-process renderers never reached the window
+("Launcher flags" above). That was never retested after the fd-0 fix
+(09-15: `res_nclose()` closing whatever descriptor was 0) and the wake-up
+socket fix (09-20), either of which can break a renderer's IPC.
+
+Retested with the published x86_64 build (v154.0.8036.0-13, unchanged) on
+Haiku R1/beta6 hrev59866+92 in VirtualBox, 4 GB, launched with the usual
+flags minus `--single-process`, `ulimit -n 8192`:
+
+- example.com, news.naver.com (live video included), x.com and Wikipedia
+  render in the window. A browser, renderers and utility processes
+  (network, storage) run as separate teams.
+- x.com, three fresh runs each way, 90 s apiece: no crash multi-process or
+  single-process.
+- Two earlier multi-process runs lost an x.com renderer in
+  `base::TerminateBecauseOutOfMemory` (the crash site, disassembled from
+  the stripped binary, is `OnNoMemoryInternal`). The first had naver,
+  YouTube and Wikipedia open in other windows of a 4 GB machine; neither
+  reproduced afterwards. The page itself stayed up, but debug_server's
+  alert held each crashed renderer suspended, and the relaunched one
+  crashed into the next alert.
+
+So the launchers drop `--single-process`, and:
+
+- They set `ulimit -n 8192` (the web-app launcher and install.py did not):
+  Haiku's default is 256 descriptors, and multi-process passes shared
+  memory and IPC channels as descriptors.
+- Child processes call `disable_debugger(1)` (port-content-shell-ui.py), so
+  a crashed renderer dies and shows as crashed instead of waiting behind an
+  alert. `RCH_CHILD_DEBUGGER=1` keeps the alert for debugging.
+
+arm64 was not retested.

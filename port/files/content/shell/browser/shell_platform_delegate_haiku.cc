@@ -196,10 +196,12 @@ bool WriteLauncher(const base::FilePath& dir,
   script += "# The window keeps the app's name rather than following the page.\n";
   script += "RCH_APP_NAME=" + ShellQuote(app_name) + "\n";
   script += "export RCH_APP_NAME\n\n";
+  script += "# Haiku's default of 256 descriptors is not enough once\n";
+  script += "# renderers run in their own processes.\n";
+  script += "ulimit -n 8192 2>/dev/null\n\n";
   script += "exec \"$SHELL_BIN\" \\\n";
   script += "\t--ozone-platform=haiku \\\n";
   script += "\t--no-sandbox \\\n";
-  script += "\t--single-process \\\n";
   script += "\t--disable-gpu \\\n";
   script += "\t--in-process-gpu \\\n";
   script += "\t--disable-gpu-compositing \\\n";
