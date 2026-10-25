@@ -73,8 +73,12 @@ done
 # do this last. Three hunks fail as already applied in a different form
 # (signin, screen_ai, unowned_user_data). Verified on a clean 154.0.8036.0
 # checkout, x64, 2026-10-25: gn gen succeeds after this.
-patch -d "$SRC" -p1 --forward --no-backup-if-mismatch -r - \
-	< "$HERE/haiku-port.diff" > /dev/null || true
+# Its build/rust/std/rules/BUILD.gn edit is left out: it matches the patched
+# arm64 rustc's std sources (rust/install-rust-toolchain.sh syncs those), and
+# breaks the stock rustc that x64 builds with.
+awk '/^diff --git /{skip = ($3 == "a/build/rust/std/rules/BUILD.gn")} !skip' \
+	"$HERE/haiku-port.diff" |
+	patch -d "$SRC" -p1 --forward --no-backup-if-mismatch -r - > /dev/null || true
 
 # 6. Chromium's extension system in content_shell (docs/EXTENSIONS.md). The
 #    embedder came in with files/ above; the schemas of the //chrome APIs it
