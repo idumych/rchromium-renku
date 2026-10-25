@@ -67,6 +67,17 @@ for f in $(cd "$HERE/files" && find . -type f); do
 	echo "  added ${f#./}"
 done
 
+# 6. Chromium's extension system in content_shell (docs/EXTENSIONS.md). The
+#    embedder came in with files/ above; the schemas of the //chrome APIs it
+#    implements are taken from this checkout, and port-shell-extensions.py
+#    wires it into content_shell. After port-content-shell-ui.py, whose
+#    BUILD.gn edit it anchors next to.
+for s in action cookies extension tab_groups tabs web_navigation windows; do
+	cp "$SRC/chrome/common/extensions/api/$s.json" \
+		"$SRC/content/shell/common/extensions/api/"
+done
+python3 "$HERE/port-shell-extensions.py" "$SRC"
+
 cat <<'USAGE'
 
 Done. Configure with:
