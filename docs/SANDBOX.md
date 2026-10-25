@@ -14,7 +14,9 @@
   are the hole that matters: a BMessage to Tracker or the registrar can
   launch or delete anything.
 - **Stage 2, a kernel syscall filter** (this document): Renku only, because
-  it needs a kernel change.
+  it needs a kernel change. Written, on the `syscall-filter` branch of a
+  local Renku checkout (`~/Projects/renku-src`), with its test program, and
+  the renderer calls it; nothing is built or run yet.
 
 ## Stage 2: what the kernel needs
 
@@ -81,6 +83,14 @@ The table itself sits in `src/system/kernel/syscall_filter.cpp` (MIT, SPDX
 header), with one entry per allowed syscall per group; about 300 syscalls,
 most of them `SYSTEM`.
 
+### Children
+
+A team that keeps `PROCESS` can `load_image()` a child, and starting and
+waiting for it means `resume_thread()` and `wait_for_thread()` on the
+child's main thread, which belongs to another team. So a thread or signal
+syscall that names a thread of one of the caller's own child teams needs
+`PROCESS`; one that names any other team's thread needs `SYSTEM`.
+
 ### Argument checks
 
 Groups decide by syscall alone. Three places need more than that, and are
@@ -114,6 +124,22 @@ Chromium side: `EnableSandbox()` calls `restrict_syscalls()` after the uid
 drop, looked up with `dlsym()` so that one binary still runs on stock
 Haiku and Renku builds without the filter (logging that it has only the
 uid drop there).
+
+Two things the renderer did that `BASIC` and `FILE_READ` would have
+broken, found while writing this:
+
+- **Shared memory.** Already handled by Chromium: a child whose command
+  line does not mark it unsandboxed gets mojo's shared memory hooks
+  (`content/app/initialize_mojo_core.cc`), and the browser creates its
+  shared memory for it. With `--no-sandbox` gone from the launchers, the
+  renderer no longer creates temp files at all.
+- **The message pump's wake-up.** Haiku has no `eventfd`, and the port's
+  replacement was a UDP socket bound and connected to itself, created by
+  every thread with a message pump, including threads that start after the
+  sandbox is on. That needs `socket()`, and granting `SOCKET` would let the
+  renderer open network connections. The pump now uses a pair of Unix
+  datagram sockets (`socketpair()`, in `BASIC`), writing to one end and
+  polling the other (port-message-pump.py).
 
 ### Testing the kernel change
 

@@ -16,18 +16,26 @@
 //                                           registrar or app_server
 //                                         - open network sockets
 //
-// That is a mitigation, not a sandbox: a compromised renderer can still
-// escape by messaging another application. Closing that needs a per-team
-// restriction in the kernel, which Haiku does not have yet.
+// That alone is a mitigation, not a sandbox: a compromised renderer could
+// still escape by messaging another application. On a Renku kernel with
+// restrict_syscalls() (docs/SANDBOX.md), the renderer then gives up every
+// syscall group but BASIC and FILE_READ: no ports, no sockets, no new
+// processes, no debugging, nothing system-wide, and no writing by path.
+// Stock Haiku has no such call; there the uid drop is all there is, and the
+// log says so.
 //
-// Nothing the renderer does after this needs root: its pak, ICU and V8 files
-// arrive as descriptors or are world-readable, fonts are read-only files
-// (HaikuFontMgr), shared memory is a temp file in $TMPDIR or the
-// world-writable /tmp, and IPC runs over the descriptors it inherited.
+// Nothing the renderer does after this needs root or those groups: its pak,
+// ICU and V8 files arrive as descriptors or are world-readable, fonts are
+// read-only files (HaikuFontMgr), shared memory is allocated by the browser
+// (a sandboxed child gets mojo's shared memory hooks, see
+// content/app/initialize_mojo_core.cc), IPC runs over the descriptors it
+// inherited, and message pumps wake through socket pairs.
 // --no-sandbox skips all of this, as on every platform.
 
 #include "content/renderer/renderer_main_platform_delegate.h"
 
+#include <OS.h>
+#include <dlfcn.h>
 #include <grp.h>
 #include <unistd.h>
 
@@ -44,6 +52,32 @@ namespace {
 // system is owned by this uid or group, so the renderer owns no file.
 constexpr uid_t kRendererUid = 65534;
 constexpr gid_t kRendererGid = 65534;
+
+// From Renku's <OS.h>; spelled out so that this builds against a stock Haiku
+// sysroot too, where restrict_syscalls() is looked up at run time.
+constexpr uint32 kSyscallGroupBasic = 0x0001;     // B_SYSCALL_GROUP_BASIC
+constexpr uint32 kSyscallGroupFileRead = 0x0002;  // B_SYSCALL_GROUP_FILE_READ
+
+// Gives up every syscall group but BASIC and FILE_READ, where the kernel can.
+void RestrictSyscalls() {
+  using RestrictSyscallsFunction = status_t (*)(uint32 allowed_groups);
+  auto restrict_syscalls = reinterpret_cast<RestrictSyscallsFunction>(
+      dlsym(RTLD_DEFAULT, "restrict_syscalls"));
+  if (!restrict_syscalls) {
+    LOG(WARNING) << "no restrict_syscalls() on this system: the renderer "
+                    "dropped root but can still use ports and sockets";
+    return;
+  }
+  const status_t status =
+      restrict_syscalls(kSyscallGroupBasic | kSyscallGroupFileRead);
+  if (status == B_NOT_SUPPORTED) {
+    LOG(WARNING) << "restrict_syscalls() is not supported on this "
+                    "architecture: the renderer dropped root only";
+    return;
+  }
+  // Any other failure is fatal, as for the uid drop.
+  CHECK_EQ(status, B_OK) << "restrict_syscalls";
+}
 
 }  // namespace
 
@@ -83,6 +117,8 @@ bool RendererMainPlatformDelegate::EnableSandbox() {
   // The browser's working directory is the app directory, which the
   // renderer has no reason to keep a handle on.
   PCHECK(chdir("/") == 0);
+
+  RestrictSyscalls();
   return true;
 }
 
