@@ -265,6 +265,222 @@ def system_cpu_build_gn(src):
          "system_cpu BUILD.gn Haiku provider")
 
 
+def dnr_keep_allowlisted_frames(src):
+    # declarativeNetRequest decides allowAllRequests when a frame navigates
+    # and remembers the frame in its RulesetMatcher. Updating a ruleset (any
+    # updateDynamicRules() call) replaces the matcher and forgets those
+    # frames, so a page that was exempted (Brave Shields "off" for a site)
+    # gets its later requests blocked once the extension touches its rules --
+    # which Brave Shields does every time its service worker wakes. Carry the
+    # frames over to the replacement.
+    d = "extensions/browser/api/declarative_net_request/"
+    edit(src, d + "ruleset_matcher_base.h",
+         "  void OnDidFinishNavigation(content::NavigationHandle* navigation_handle);\n"
+         "\n"
+         "  // Returns the tracked highest priority matching allowsAllRequests action, if\n",
+         "  void OnDidFinishNavigation(content::NavigationHandle* navigation_handle);\n"
+         "\n"
+         "  // " + MARK + ": takes over the frames `other` allow-listed, when\n"
+         "  // this matcher replaces it.\n"
+         "  void InheritAllowlistedFrames(const RulesetMatcherBase& other);\n"
+         "\n"
+         "  // Returns the tracked highest priority matching allowsAllRequests action, if\n",
+         "DNR: RulesetMatcherBase::InheritAllowlistedFrames declaration")
+    edit(src, d + "ruleset_matcher_base.cc",
+         "std::optional<RequestAction>\n"
+         "RulesetMatcherBase::GetAllowlistedFrameActionForTesting(\n",
+         "void RulesetMatcherBase::InheritAllowlistedFrames(\n"
+         "    const RulesetMatcherBase& other) {\n"
+         "  for (const auto& [frame_id, action] : other.allowlisted_frames_) {\n"
+         "    allowlisted_frames_.emplace(frame_id, action.Clone());\n"
+         "  }\n"
+         "}\n"
+         "\n"
+         "std::optional<RequestAction>\n"
+         "RulesetMatcherBase::GetAllowlistedFrameActionForTesting(\n",
+         "DNR: RulesetMatcherBase::InheritAllowlistedFrames")
+    edit(src, d + "ruleset_matcher.h",
+         "  void OnDidFinishNavigation(content::NavigationHandle* navigation_handle);\n"
+         "\n"
+         "  // ID of the ruleset.",
+         "  void OnDidFinishNavigation(content::NavigationHandle* navigation_handle);\n"
+         "\n"
+         "  // " + MARK + ": see RulesetMatcherBase.\n"
+         "  void InheritAllowlistedFrames(const RulesetMatcher& other);\n"
+         "\n"
+         "  // ID of the ruleset.",
+         "DNR: RulesetMatcher::InheritAllowlistedFrames declaration")
+    edit(src, d + "ruleset_matcher.cc",
+         "  url_matcher_.OnDidFinishNavigation(navigation_handle);\n"
+         "  regex_matcher_.OnDidFinishNavigation(navigation_handle);\n"
+         "}\n",
+         "  url_matcher_.OnDidFinishNavigation(navigation_handle);\n"
+         "  regex_matcher_.OnDidFinishNavigation(navigation_handle);\n"
+         "}\n"
+         "\n"
+         "void RulesetMatcher::InheritAllowlistedFrames(const RulesetMatcher& other) {\n"
+         "  url_matcher_.InheritAllowlistedFrames(other.url_matcher_);\n"
+         "  regex_matcher_.InheritAllowlistedFrames(other.regex_matcher_);\n"
+         "}\n",
+         "DNR: RulesetMatcher::InheritAllowlistedFrames")
+    edit(src, d + "composite_matcher.cc",
+         "void CompositeMatcher::AddOrUpdateRulesets(MatcherList matchers) {\n"
+         "  std::set<RulesetID> ids_to_remove;\n"
+         "  for (const auto& matcher : matchers) {\n"
+         "    ids_to_remove.insert(matcher->id());\n"
+         "  }\n",
+         "void CompositeMatcher::AddOrUpdateRulesets(MatcherList matchers) {\n"
+         "  std::set<RulesetID> ids_to_remove;\n"
+         "  for (const auto& matcher : matchers) {\n"
+         "    ids_to_remove.insert(matcher->id());\n"
+         "    // " + MARK + ": frames stay allow-listed across updates.\n"
+         "    if (const RulesetMatcher* old = GetMatcherWithID(matcher->id())) {\n"
+         "      matcher->InheritAllowlistedFrames(*old);\n"
+         "    }\n"
+         "  }\n",
+         "DNR: keep allow-listed frames across ruleset updates")
+
+
+def dnr_allowlist_at_ready_to_commit(src):
+    # allowAllRequests is recorded for a frame in DidFinishNavigation, which
+    # the browser handles when the renderer reports the commit. The new
+    # document's first requests travel on another pipe and can be handled
+    # before that (by 200 ms on a VM), so they are matched as if the site
+    # were not exempted. Record the frame at ReadyToCommitNavigation too,
+    # which comes before the renderer is told to commit; DidFinishNavigation
+    # still has the last word.
+    d = "extensions/browser/api/declarative_net_request/"
+    nav = "  void OnReadyToCommitNavigation(content::NavigationHandle* navigation_handle);\n"
+    edit(src, d + "ruleset_matcher_base.h",
+         "  void InheritAllowlistedFrames(const RulesetMatcherBase& other);\n",
+         "  void InheritAllowlistedFrames(const RulesetMatcherBase& other);\n"
+         "  // " + MARK + ": records allowAllRequests for the frame a\n"
+         "  // navigation is about to commit in, before its document can make\n"
+         "  // requests.\n" + nav,
+         "DNR: RulesetMatcherBase::OnReadyToCommitNavigation declaration")
+    edit(src, d + "ruleset_matcher_base.cc",
+         "#include \"extensions/browser/api/declarative_net_request/utils.h\"\n",
+         "#include \"extensions/browser/api/declarative_net_request/utils.h\"\n"
+         "#include \"content/public/browser/web_contents.h\"\n"
+         "#include \"extensions/browser/extensions_browser_client.h\"\n"
+         "#include \"extensions/common/api/declarative_net_request.h\"\n"
+         "#include \"extensions/common/constants.h\"\n",
+         "DNR: ruleset_matcher_base.cc includes")
+    edit(src, d + "ruleset_matcher_base.cc",
+         "void RulesetMatcherBase::InheritAllowlistedFrames(\n",
+         "void RulesetMatcherBase::OnReadyToCommitNavigation(\n"
+         "    content::NavigationHandle* navigation_handle) {\n"
+         "  namespace dnr_api = api::declarative_net_request;\n"
+         "  content::RenderFrameHost* host = navigation_handle->GetRenderFrameHost();\n"
+         "  if (!host) {\n"
+         "    return;\n"
+         "  }\n"
+         "  // As RequestParams(RenderFrameHost*) would see it after the commit.\n"
+         "  content::RenderFrameHost* parent =\n"
+         "      navigation_handle->GetParentFrameOrOuterDocument();\n"
+         "  const GURL& url = navigation_handle->GetURL();\n"
+         "  const url::Origin initiator =\n"
+         "      parent ? parent->GetLastCommittedOrigin() : url::Origin();\n"
+         "  const url::Origin top_origin =\n"
+         "      parent ? parent->GetOutermostMainFrame()->GetLastCommittedOrigin()\n"
+         "             : url::Origin::Create(url);\n"
+         "  int tab_id = extension_misc::kUnknownTabId;\n"
+         "  int window_id = extension_misc::kUnknownWindowId;\n"
+         "  ExtensionsBrowserClient::Get()->GetTabAndWindowIdForWebContents(\n"
+         "      navigation_handle->GetWebContents(), &tab_id, &window_id);\n"
+         "  const auto type = parent ? dnr_api::ResourceType::kSubFrame\n"
+         "                           : dnr_api::ResourceType::kMainFrame;\n"
+         "  const auto method = navigation_handle->IsPost()\n"
+         "                          ? dnr_api::RequestMethod::kPost\n"
+         "                          : dnr_api::RequestMethod::kGet;\n"
+         "\n"
+         "  RequestParams params(url, initiator, top_origin, type, method, tab_id,\n"
+         "                       /*response_headers=*/nullptr);\n"
+         "  std::optional<RequestAction> action =\n"
+         "      GetAllowAllRequestsAction(params, RulesetMatchingStage::kOnBeforeRequest);\n"
+         "  if (navigation_handle->GetResponseHeaders()) {\n"
+         "    RequestParams params_with_headers(\n"
+         "        url, initiator, top_origin, type, method, tab_id,\n"
+         "        navigation_handle->GetResponseHeaders());\n"
+         "    action = GetMaxPriorityAction(\n"
+         "        std::move(action),\n"
+         "        GetAllowAllRequestsAction(params_with_headers,\n"
+         "                                  RulesetMatchingStage::kOnHeadersReceived));\n"
+         "  }\n"
+         "  if (parent) {\n"
+         "    action = GetMaxPriorityAction(\n"
+         "        GetAllowlistedFrameAction(parent->GetGlobalId()), std::move(action));\n"
+         "  }\n"
+         "  if (!action) {\n"
+         "    return;\n"
+         "  }\n"
+         "  allowlisted_frames_.erase(host->GetGlobalId());\n"
+         "  allowlisted_frames_.insert(\n"
+         "      std::make_pair(host->GetGlobalId(), std::move(*action)));\n"
+         "}\n"
+         "\n"
+         "void RulesetMatcherBase::InheritAllowlistedFrames(\n",
+         "DNR: RulesetMatcherBase::OnReadyToCommitNavigation")
+    edit(src, d + "ruleset_matcher.h",
+         "  void InheritAllowlistedFrames(const RulesetMatcher& other);\n",
+         "  void InheritAllowlistedFrames(const RulesetMatcher& other);\n" + nav,
+         "DNR: RulesetMatcher::OnReadyToCommitNavigation declaration")
+    edit(src, d + "ruleset_matcher.cc",
+         "void RulesetMatcher::InheritAllowlistedFrames(const RulesetMatcher& other) {\n",
+         "void RulesetMatcher::OnReadyToCommitNavigation(\n"
+         "    content::NavigationHandle* navigation_handle) {\n"
+         "  url_matcher_.OnReadyToCommitNavigation(navigation_handle);\n"
+         "  regex_matcher_.OnReadyToCommitNavigation(navigation_handle);\n"
+         "}\n"
+         "\n"
+         "void RulesetMatcher::InheritAllowlistedFrames(const RulesetMatcher& other) {\n",
+         "DNR: RulesetMatcher::OnReadyToCommitNavigation")
+    for rel, cls, member, nxt in (
+            ("composite_matcher", "CompositeMatcher", "matchers_",
+             "  // Returns if this extension has any rulesets"),
+            ("ruleset_manager", "RulesetManager", "rulesets_",
+             "  // Returns if there are any matchers")):
+        edit(src, d + rel + ".h",
+             "  void OnDidFinishNavigation(content::NavigationHandle* navigation_handle);\n"
+             "\n" + nxt,
+             "  void OnDidFinishNavigation(content::NavigationHandle* navigation_handle);\n"
+             "  // " + MARK + ".\n" + nav + "\n" + nxt,
+             "DNR: %s::OnReadyToCommitNavigation declaration" % cls)
+        loop = ("  for (auto& matcher : matchers_) {\n"
+                "    matcher->OnReadyToCommitNavigation(navigation_handle);\n"
+                "  }\n") if member == "matchers_" else (
+                "  for (ExtensionRulesetData& ruleset : rulesets_) {\n"
+                "    ruleset.matcher->OnReadyToCommitNavigation(navigation_handle);\n"
+                "  }\n")
+        edit(src, d + rel + ".cc",
+             "void %s::OnDidFinishNavigation(\n" % cls,
+             "void %s::OnReadyToCommitNavigation(\n"
+             "    content::NavigationHandle* navigation_handle) {\n" % cls + loop +
+             "}\n"
+             "\n"
+             "void %s::OnDidFinishNavigation(\n" % cls,
+             "DNR: %s::OnReadyToCommitNavigation" % cls)
+    edit(src, d + "web_contents_helper.h",
+         "  void DidFinishNavigation(\n"
+         "      content::NavigationHandle* navigation_handle) override;\n",
+         "  void DidFinishNavigation(\n"
+         "      content::NavigationHandle* navigation_handle) override;\n"
+         "  // " + MARK + ".\n"
+         "  void ReadyToCommitNavigation(\n"
+         "      content::NavigationHandle* navigation_handle) override;\n",
+         "DNR: WebContentsHelper::ReadyToCommitNavigation declaration")
+    edit(src, d + "web_contents_helper.cc",
+         "void WebContentsHelper::DidFinishNavigation(\n",
+         "void WebContentsHelper::ReadyToCommitNavigation(\n"
+         "    content::NavigationHandle* navigation_handle) {\n"
+         "  DCHECK(ruleset_manager_);\n"
+         "  ruleset_manager_->OnReadyToCommitNavigation(navigation_handle);\n"
+         "}\n"
+         "\n"
+         "void WebContentsHelper::DidFinishNavigation(\n",
+         "DNR: WebContentsHelper::ReadyToCommitNavigation")
+
+
 def main_parts(src):
     rel = "content/shell/browser/shell_browser_main_parts.cc"
     add_include(src, rel,
@@ -809,6 +1025,8 @@ def main(src):
     security_interstitials(src)
     extension_commands(src)
     system_cpu_build_gn(src)
+    dnr_keep_allowlisted_frames(src)
+    dnr_allowlist_at_ready_to_commit(src)
     main_parts(src)
     browser_context(src)
     browser_client(src)

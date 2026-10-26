@@ -10,6 +10,7 @@
 #include <memory>
 #include <utility>
 
+#include "base/barrier_closure.h"
 #include "base/command_line.h"
 #include "base/files/file_enumerator.h"
 #include "base/files/file_path.h"
@@ -18,9 +19,12 @@
 #include "base/path_service.h"
 #include "base/logging.h"
 #include "base/memory/raw_ptr.h"
+#include "base/memory/weak_ptr.h"
 #include "base/strings/string_split.h"
 #include "base/task/sequenced_task_runner.h"
 #include "base/threading/thread_restrictions.h"
+#include "base/time/time.h"
+#include "base/timer/timer.h"
 #include "components/custom_handlers/protocol_handler_registry.h"
 #include "components/keyed_service/content/browser_context_dependency_manager.h"
 #include "components/pref_registry/pref_registry_syncable.h"
@@ -30,6 +34,8 @@
 #include "components/prefs/pref_service_factory.h"
 #include "components/user_prefs/user_prefs.h"
 #include "content/public/browser/browser_context.h"
+#include "content/public/browser/navigation_handle.h"
+#include "content/public/browser/navigation_throttle.h"
 #include "content/public/browser/navigation_throttle_registry.h"
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/render_process_host.h"
@@ -47,6 +53,9 @@
 #include "content/shell/browser/extensions/shell_tabs.h"
 #include "content/shell/common/extensions/shell_extensions_client.h"
 #include "extensions/browser/api/audio/audio_api.h"
+#include "extensions/browser/api/declarative_net_request/rules_monitor_service.h"
+#include "extensions/browser/api/declarative_net_request/ruleset_manager.h"
+#include "extensions/browser/api/declarative_net_request/utils.h"
 #include "extensions/browser/api/runtime/runtime_api.h"
 #include "extensions/browser/api/web_request/extension_web_request_event_router.h"
 #include "extensions/browser/api/web_request/web_request_api.h"
@@ -86,9 +95,109 @@ struct State {
   std::unique_ptr<ShellActionToolbar> toolbar;
   std::unique_ptr<ShellCookiesEventRouter> cookies_event_router;
   std::map<content::BrowserContext*, std::unique_ptr<PrefService>> prefs;
+
+  // Startup: the extensions found at startup load asynchronously, and their
+  // declarativeNetRequest rules after them. Navigations wait for both (see
+  // StartupNavigationThrottle).
+  bool startup_loaded = false;
+  std::vector<ExtensionId> startup_extensions;
+  std::vector<base::OnceClosure> startup_waiters;
+  base::TimeTicks startup_deadline;
+  base::RepeatingTimer startup_rules_timer;
 };
 
 State* g_state = nullptr;
+
+// How long navigations wait at most for the startup extensions, so a broken
+// extension cannot keep every page from loading.
+constexpr base::TimeDelta kStartupWait = base::Seconds(10);
+
+void StartupLoaded() {
+  if (!g_state || g_state->startup_loaded) {
+    return;
+  }
+  g_state->startup_loaded = true;
+  g_state->startup_rules_timer.Stop();
+  for (base::OnceClosure& waiter : g_state->startup_waiters) {
+    std::move(waiter).Run();
+  }
+  g_state->startup_waiters.clear();
+}
+
+// Whether every startup extension that can have declarativeNetRequest rules
+// has them in the RulesetManager. Rules load after the extension, on another
+// sequence; an extension without enabled rulesets never gets a matcher, so
+// the deadline ends the wait for those.
+bool StartupRulesLoaded(content::BrowserContext* context) {
+  auto* rules_monitor =
+      declarative_net_request::RulesMonitorService::Get(context);
+  if (!rules_monitor) {
+    return true;
+  }
+  ExtensionRegistry* registry = ExtensionRegistry::Get(context);
+  for (const ExtensionId& id : g_state->startup_extensions) {
+    const Extension* extension = registry->enabled_extensions().GetByID(id);
+    if (extension && declarative_net_request::HasAnyDNRPermission(*extension) &&
+        !rules_monitor->ruleset_manager()->GetMatcherForExtension(id)) {
+      return false;
+    }
+  }
+  return true;
+}
+
+void StartupExtensionsLoaded(content::BrowserContext* context) {
+  if (!g_state || g_state->startup_loaded) {
+    return;
+  }
+  if (StartupRulesLoaded(context)) {
+    StartupLoaded();
+    return;
+  }
+  g_state->startup_rules_timer.Start(
+      FROM_HERE, base::Milliseconds(50),
+      base::BindRepeating(
+          [](content::BrowserContext* context) {
+            if (StartupRulesLoaded(context) ||
+                base::TimeTicks::Now() >= g_state->startup_deadline) {
+              StartupLoaded();
+            }
+          },
+          context));
+}
+
+// Defers a navigation's network request until the extensions present at
+// startup are loaded, with their declarativeNetRequest rules. Chrome loads
+// installed extensions before its first window; R Chromium loads them
+// asynchronously, so without this the start page loads unfiltered, without
+// content scripts -- and when an extension that can modify requests finishes
+// loading, Chromium resets every URLLoaderFactory, which leaves a navigation
+// already under way hanging for good if a rule modifies its request headers.
+class StartupNavigationThrottle : public content::NavigationThrottle {
+ public:
+  explicit StartupNavigationThrottle(
+      content::NavigationThrottleRegistry& registry)
+      : content::NavigationThrottle(registry) {}
+  StartupNavigationThrottle(const StartupNavigationThrottle&) = delete;
+  StartupNavigationThrottle& operator=(const StartupNavigationThrottle&) =
+      delete;
+  ~StartupNavigationThrottle() override = default;
+
+  ThrottleCheckResult WillStartRequest() override {
+    if (!g_state || g_state->startup_loaded) {
+      return PROCEED;
+    }
+    g_state->startup_waiters.push_back(base::BindOnce(
+        &StartupNavigationThrottle::Resume, weak_factory_.GetWeakPtr()));
+    return DEFER;
+  }
+
+  const char* GetNameForLogging() override {
+    return "StartupNavigationThrottle";
+  }
+
+ private:
+  base::WeakPtrFactory<StartupNavigationThrottle> weak_factory_{this};
+};
 
 bool Enabled() {
   return g_state && g_state->browser_client->main_context() &&
@@ -276,6 +385,7 @@ void ShellExtensions::BrowserContextsCreated(
       *command_line, main_context);
   system->InitForRegularProfile(enabled);
   if (!enabled) {
+    StartupLoaded();
     return;
   }
 
@@ -289,8 +399,22 @@ void ShellExtensions::BrowserContextsCreated(
         }
       }));
 
-  for (const base::FilePath& dir : ExtensionDirectories(main_context)) {
-    system->LoadUnpacked(dir);
+  const std::vector<base::FilePath> dirs = ExtensionDirectories(main_context);
+  g_state->startup_deadline = base::TimeTicks::Now() + kStartupWait;
+  base::SequencedTaskRunner::GetCurrentDefault()->PostDelayedTask(
+      FROM_HERE, base::BindOnce(&StartupLoaded), kStartupWait);
+  base::RepeatingClosure loaded = base::BarrierClosure(
+      dirs.size(), base::BindOnce(&StartupExtensionsLoaded, main_context));
+  for (const base::FilePath& dir : dirs) {
+    system->LoadUnpacked(
+        dir, base::BindOnce(
+                 [](base::RepeatingClosure loaded, const ExtensionId& id) {
+                   if (g_state && !id.empty()) {
+                     g_state->startup_extensions.push_back(id);
+                   }
+                   loaded.Run();
+                 },
+                 loaded));
   }
 }
 
@@ -633,6 +757,7 @@ void ShellExtensions::CreateThrottlesForNavigation(
     return;
   }
   registry.AddThrottle(std::make_unique<ExtensionNavigationThrottle>(registry));
+  registry.AddThrottle(std::make_unique<StartupNavigationThrottle>(registry));
 }
 
 }  // namespace extensions

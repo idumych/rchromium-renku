@@ -10,6 +10,7 @@
 #include "base/command_line.h"
 #include "base/files/file_path.h"
 #include "base/functional/bind.h"
+#include "base/functional/callback_helpers.h"
 #include "base/logging.h"
 #include "base/no_destructor.h"
 #include "base/strings/utf_string_conversions.h"
@@ -35,7 +36,8 @@ namespace extensions {
 
 namespace {
 
-void OnUnpackedLoaded(const Extension* extension,
+void OnUnpackedLoaded(base::OnceCallback<void(const ExtensionId&)> done,
+                      const Extension* extension,
                       const base::FilePath& path,
                       const std::u16string& error) {
   if (extension) {
@@ -46,6 +48,7 @@ void OnUnpackedLoaded(const Extension* extension,
     LOG(ERROR) << "[RCH] extension failed to load from " << path.value()
                << ": " << error;
   }
+  std::move(done).Run(extension ? extension->id() : ExtensionId());
 }
 
 }  // namespace
@@ -72,11 +75,16 @@ ShellExtensionSystem::ShellExtensionSystem(
 
 ShellExtensionSystem::~ShellExtensionSystem() = default;
 
-void ShellExtensionSystem::LoadUnpacked(const base::FilePath& dir) {
+void ShellExtensionSystem::LoadUnpacked(
+    const base::FilePath& dir,
+    base::OnceCallback<void(const ExtensionId&)> done) {
   scoped_refptr<UnpackedInstaller> installer =
       UnpackedInstaller::Create(browser_context_);
   installer->set_be_noisy_on_failure(false);
-  installer->set_completion_callback(base::BindOnce(&OnUnpackedLoaded));
+  // Runs on failure too, including LoadFromCommandLine()'s own (except
+  // without a browser context, which cannot happen here).
+  installer->set_completion_callback(
+      base::BindOnce(&OnUnpackedLoaded, std::move(done)));
   std::string id;
   if (!installer->LoadFromCommandLine(dir, &id, /*only_allow_apps=*/false)) {
     LOG(ERROR) << "[RCH] cannot load extension from " << dir.value();
@@ -204,13 +212,13 @@ void ShellExtensionSystem::PostUninstallExtension(
 void ShellExtensionSystem::LoadExtensionForReload(
     const ExtensionId& extension_id,
     const base::FilePath& path) {
-  LoadUnpacked(path);
+  LoadUnpacked(path, base::DoNothing());
 }
 
 void ShellExtensionSystem::LoadExtensionForReloadWithQuietFailure(
     const ExtensionId& extension_id,
     const base::FilePath& path) {
-  LoadUnpacked(path);
+  LoadUnpacked(path, base::DoNothing());
 }
 
 void ShellExtensionSystem::ShowExtensionDisabledError(

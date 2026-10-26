@@ -7,6 +7,7 @@
 
 #include <memory>
 
+#include "base/functional/callback.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/no_destructor.h"
@@ -14,6 +15,7 @@
 #include "extensions/browser/extension_registrar.h"
 #include "extensions/browser/extension_system.h"
 #include "extensions/browser/extension_system_provider.h"
+#include "extensions/common/extension_id.h"
 
 namespace base {
 class FilePath;
@@ -48,8 +50,10 @@ class ShellExtensionSystem : public ExtensionSystem,
   ~ShellExtensionSystem() override;
 
   // Loads an unpacked extension from `dir`, asynchronously. Errors are
-  // logged.
-  void LoadUnpacked(const base::FilePath& dir);
+  // logged. `done` runs once loading has finished, with the extension's ID,
+  // or an empty one if it failed.
+  void LoadUnpacked(const base::FilePath& dir,
+                    base::OnceCallback<void(const ExtensionId&)> done);
 
   // KeyedService:
   void Shutdown() override;
