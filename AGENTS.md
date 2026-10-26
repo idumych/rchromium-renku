@@ -1326,6 +1326,27 @@ plus `fonts/LICENSE-NotoSansCJK.txt` (SIL OFL 1.1). The RENKU image only ships
 `NotoSansCJKkr-{Regular,Bold}.otf`, so JP/SC/TC glyph variants come from the
 bundle. `packaging/make-release-tarball.sh` requires the three files.
 
+## Arabic and colour emoji (added 2026-10-26)
+
+A Renku nightly has no Arabic or emoji font, so both rendered as boxes.
+`packaging/fetch-fonts.sh <dist>/fonts` (run by build-x64.sh's dist step)
+now fetches every bundled font from pinned tags, checks SHA-256 sums and
+caches them in `~/.cache/rchromium-fonts`: the CJK OTCs above (noto-cjk
+`Sans2.004`, byte-identical to the old release tarball's),
+`NotoSansArabic-{Regular,Bold}.ttf` (notofonts/arabic `NotoSansArabic-v2.013`,
+hinted static) and `Noto-COLRv1.ttf` (googlefonts/noto-emoji `v2.051`), each
+with its OFL 1.1 licence as `LICENSE-<family>.txt`.
+
+Arabic needs no code: per-character fallback's last pass finds Noto Sans
+Arabic, and `<app>/fonts` is scanned first. Emoji did: Chromium's FreeType is
+built without `TT_CONFIG_OPTION_COLOR_LAYERS` and `FT_CONFIG_OPTION_USE_PNG`,
+so neither COLRv1 nor CBDT draws through the FreeType scanner (Linux avoids
+this by scanning with Fontations). `HaikuFontMgr` therefore reopens the
+"Noto Color Emoji" family's file with `SkTypeface_Make_Fontations`, drops the
+FreeType copy from its family list, answers `matchFamily("Noto Color Emoji")`
+with it, returns it first when the request carries Blink's `und-Zsye` tag
+(emoji presentation), and uses it as the very last fallback otherwise.
+
 ## End-user install: install.py, the release tarball, and the launcher
 
 ### Requirements on the device

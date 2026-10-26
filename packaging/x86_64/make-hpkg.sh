@@ -17,7 +17,7 @@ VERSION=154.0.8036.0
 REV=1
 
 for f in content_shell content_shell.pak icudtl.dat snapshot_blob.bin locales \
-         lib/libchromium_haiku.so; do
+         lib/libchromium_haiku.so fonts/Noto-COLRv1.ttf; do
 	[ -e "$DIST/$f" ] || { echo "missing $DIST/$f" >&2; exit 1; }
 done
 
