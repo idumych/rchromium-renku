@@ -16,7 +16,10 @@
 - **Stage 2, a kernel syscall filter** (this document): Renku only, because
   it needs a kernel change. Written, on the `syscall-filter` branch of a
   local Renku checkout (`~/Projects/renku-src`), with its test program, and
-  the renderer calls it; nothing is built or run yet.
+  the renderer calls it. The kernel and libroot, built from that branch on
+  top of nightly build00062 (aae7d9f7), boot to the desktop on x86_64, and
+  `syscall_filter_test` passes every case (2026-10-25). Not yet run: the
+  32-bit compat entry, arm64, and a sandboxed R Chromium.
 
 ## Stage 2: what the kernel needs
 
