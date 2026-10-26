@@ -73,7 +73,7 @@ class ShellActionToolbar : public ShellActions::Observer,
    public:
     IconObserver(ShellActionToolbar* toolbar, const ExtensionId& id)
         : toolbar_(toolbar), id_(id) {}
-    void OnIconUpdated() override { toolbar_->Push(id_); }
+    void OnIconUpdated() override;
 
    private:
     raw_ptr<ShellActionToolbar> toolbar_;

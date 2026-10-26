@@ -213,6 +213,10 @@ class ExtensionPopup : public content::WebContentsDelegate,
   std::unique_ptr<content::WebContents> web_contents_;
 };
 
+void ShellActionToolbar::IconObserver::OnIconUpdated() {
+  toolbar_->Push(id_);
+}
+
 ShellActionToolbar::Entry::Entry() = default;
 ShellActionToolbar::Entry::~Entry() = default;
 

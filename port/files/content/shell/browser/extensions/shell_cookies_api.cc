@@ -391,6 +391,9 @@ void ShellCookiesEventRouter::OnCookieChange(
   router->BroadcastEvent(std::move(event));
 }
 
+CookiesGetFunction::CookiesGetFunction() = default;
+CookiesGetFunction::~CookiesGetFunction() = default;
+
 ExtensionFunction::ResponseAction CookiesGetFunction::Run() {
   params_ = cookies::Get::Params::Create(args());
   EXTENSION_FUNCTION_VALIDATE(params_);
@@ -437,6 +440,9 @@ void CookiesGetFunction::GotCookies(
   }
   Respond(WithArguments(base::Value()));
 }
+
+CookiesGetAllFunction::CookiesGetAllFunction() = default;
+CookiesGetAllFunction::~CookiesGetAllFunction() = default;
 
 ExtensionFunction::ResponseAction CookiesGetAllFunction::Run() {
   params_ = cookies::GetAll::Params::Create(args());
@@ -495,6 +501,9 @@ void CookiesGetAllFunction::GotURLCookies(
       CollectionFromApiPartitionKey(params_->details.partition_key),
       extension()))));
 }
+
+CookiesSetFunction::CookiesSetFunction() = default;
+CookiesSetFunction::~CookiesSetFunction() = default;
 
 ExtensionFunction::ResponseAction CookiesSetFunction::Run() {
   params_ = cookies::Set::Params::Create(args());
@@ -599,6 +608,9 @@ void CookiesSetFunction::GotCookies(
   }
   Respond(NoArguments());
 }
+
+CookiesRemoveFunction::CookiesRemoveFunction() = default;
+CookiesRemoveFunction::~CookiesRemoveFunction() = default;
 
 ExtensionFunction::ResponseAction CookiesRemoveFunction::Run() {
   params_ = cookies::Remove::Params::Create(args());

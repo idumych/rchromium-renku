@@ -31,9 +31,7 @@ class ShellActions {
                                  int tab_id) {}
     // chrome.action.openPopup(): show the popup for the active tab. Returns
     // true if the observer did.
-    virtual bool OnOpenPopupRequested(const ExtensionId& extension_id) {
-      return false;
-    }
+    virtual bool OnOpenPopupRequested(const ExtensionId& extension_id);
   };
 
   ShellActions() = delete;

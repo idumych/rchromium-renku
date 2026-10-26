@@ -68,6 +68,11 @@ base::ListValue ColorList(SkColor color) {
 
 }  // namespace
 
+bool ShellActions::Observer::OnOpenPopupRequested(
+    const ExtensionId& extension_id) {
+  return false;
+}
+
 // static
 void ShellActions::AddObserver(Observer* observer) {
   Observers().AddObserver(observer);

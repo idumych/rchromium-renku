@@ -51,8 +51,10 @@ class CookiesGetFunction : public ExtensionFunction {
  public:
   DECLARE_EXTENSION_FUNCTION("cookies.get", COOKIES_GET)
 
+  CookiesGetFunction();
+
  protected:
-  ~CookiesGetFunction() override = default;
+  ~CookiesGetFunction() override;
   ResponseAction Run() override;
 
  private:
@@ -66,8 +68,10 @@ class CookiesGetAllFunction : public ExtensionFunction {
  public:
   DECLARE_EXTENSION_FUNCTION("cookies.getAll", COOKIES_GETALL)
 
+  CookiesGetAllFunction();
+
  protected:
-  ~CookiesGetAllFunction() override = default;
+  ~CookiesGetAllFunction() override;
   ResponseAction Run() override;
 
  private:
@@ -82,8 +86,10 @@ class CookiesSetFunction : public ExtensionFunction {
  public:
   DECLARE_EXTENSION_FUNCTION("cookies.set", COOKIES_SET)
 
+  CookiesSetFunction();
+
  protected:
-  ~CookiesSetFunction() override = default;
+  ~CookiesSetFunction() override;
   ResponseAction Run() override;
 
  private:
@@ -100,8 +106,10 @@ class CookiesRemoveFunction : public ExtensionFunction {
  public:
   DECLARE_EXTENSION_FUNCTION("cookies.remove", COOKIES_REMOVE)
 
+  CookiesRemoveFunction();
+
  protected:
-  ~CookiesRemoveFunction() override = default;
+  ~CookiesRemoveFunction() override;
   ResponseAction Run() override;
 
  private:

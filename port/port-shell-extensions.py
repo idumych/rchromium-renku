@@ -250,6 +250,21 @@ def extension_commands(src):
          "extensions/common/command.cc key binding platform")
 
 
+def system_cpu_build_gn(src):
+    # chrome.system.cpu needs a per-OS CpuInfoProvider; Haiku's is in
+    # port/files.
+    edit(src, "extensions/browser/api/system_cpu/BUILD.gn",
+         "  if (is_win) {\n"
+         "    sources += [ \"cpu_info_provider_win.cc\" ]\n",
+         "  if (is_haiku) {\n"
+         "    sources += [ \"cpu_info_provider_haiku.cc\" ]\n"
+         "  }\n"
+         "\n"
+         "  if (is_win) {\n"
+         "    sources += [ \"cpu_info_provider_win.cc\" ]\n",
+         "system_cpu BUILD.gn Haiku provider")
+
+
 def main_parts(src):
     rel = "content/shell/browser/shell_browser_main_parts.cc"
     add_include(src, rel,
@@ -793,6 +808,7 @@ def main(src):
     extensions_renderer_build_gn(src)
     security_interstitials(src)
     extension_commands(src)
+    system_cpu_build_gn(src)
     main_parts(src)
     browser_context(src)
     browser_client(src)
