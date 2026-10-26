@@ -218,6 +218,25 @@ def extensions_renderer_build_gn(src):
          "extensions/renderer/BUILD.gn unused //chrome dependency")
 
 
+def security_interstitials(src):
+    # The extension embedder brings //components/security_interstitials into
+    # the build, and LaunchDateAndTimeSettings() (the "fix your clock" button
+    # on a certificate-date error page) has a branch per OS and an #error for
+    # the rest. Haiku's equivalent is the Time preferences.
+    edit(src, "components/security_interstitials/content/utils.cc",
+         "#elif BUILDFLAG(IS_FUCHSIA) || BUILDFLAG(IS_IOS)\n",
+         "#elif BUILDFLAG(IS_HAIKU)\n"
+         "  // " + MARK + ": Haiku's date and time settings.\n"
+         "  base::LaunchOptions options;\n"
+         "  options.wait = false;\n"
+         "  base::LaunchProcess(\n"
+         "      base::CommandLine(base::FilePath(\"/boot/system/preferences/Time\")),\n"
+         "      options);\n"
+         "\n"
+         "#elif BUILDFLAG(IS_FUCHSIA) || BUILDFLAG(IS_IOS)\n",
+         "security_interstitials LaunchDateAndTimeSettings")
+
+
 def main_parts(src):
     rel = "content/shell/browser/shell_browser_main_parts.cc"
     add_include(src, rel,
@@ -759,6 +778,7 @@ def main(src):
     build_gn(src)
     components_build_gn(src)
     extensions_renderer_build_gn(src)
+    security_interstitials(src)
     main_parts(src)
     browser_context(src)
     browser_client(src)
