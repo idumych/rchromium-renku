@@ -18,8 +18,11 @@
   local Renku checkout (`~/Projects/renku-src`), with its test program, and
   the renderer calls it. The kernel and libroot, built from that branch on
   top of nightly build00062 (aae7d9f7), boot to the desktop on x86_64, and
-  `syscall_filter_test` passes every case (2026-10-25). Not yet run: the
-  32-bit compat entry, arm64, and a sandboxed R Chromium.
+  `syscall_filter_test` passes all 8 cases, 10 runs out of 10
+  (2026-10-25). The change only adds: no syscall is renumbered and no
+  kernel structure member moves. Not yet run: the 32-bit compat entry,
+  arm64, and a sandboxed R Chromium. (Shutdown on that VM panics in the
+  TCP module, as the unmodified kernel does: Renku issue #167.)
 
 ## Stage 2: what the kernel needs
 
