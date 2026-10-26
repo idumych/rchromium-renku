@@ -237,6 +237,19 @@ def security_interstitials(src):
          "security_interstitials LaunchDateAndTimeSettings")
 
 
+def extension_commands(src):
+    # Which of a manifest's "commands" key bindings apply ("windows", "mac",
+    # "chromeos", "linux"); every other OS is an #error. Haiku takes the
+    # Linux ones, as desktop Android does upstream.
+    edit(src, "extensions/common/command.cc",
+         "#elif BUILDFLAG(IS_DESKTOP_ANDROID)\n",
+         "#elif BUILDFLAG(IS_HAIKU)\n"
+         "  // " + MARK + ": manifests have no Haiku key bindings.\n"
+         "  return ui::kKeybindingPlatformLinux;\n"
+         "#elif BUILDFLAG(IS_DESKTOP_ANDROID)\n",
+         "extensions/common/command.cc key binding platform")
+
+
 def main_parts(src):
     rel = "content/shell/browser/shell_browser_main_parts.cc"
     add_include(src, rel,
@@ -779,6 +792,7 @@ def main(src):
     components_build_gn(src)
     extensions_renderer_build_gn(src)
     security_interstitials(src)
+    extension_commands(src)
     main_parts(src)
     browser_context(src)
     browser_client(src)
