@@ -11,6 +11,22 @@ loader patch); stock Haiku arm64 images cannot load it.
 
 ![R Chromium rendering news.naver.com on the Haiku arm64 desktop](docs/images/screenshot-naver.png)
 
+## x86_64 test preview
+
+[Preview 1](https://github.com/idumych/rchromium-renku/releases/tag/preview-1)
+is an x86_64 build for RenkuOS/Haiku with extensions (Brave Shields bundled),
+sandboxed renderers, and Arabic and colour emoji fonts. Install
+`rchromium-154.0.8036.0-1-x86_64.hpkg` with `pkgman install`.
+
+The optional kernel package in the same release, which adds the syscall filter
+from [RenkuOS/Source#186](https://github.com/RenkuOS/Source/pull/186), is built
+against **RenkuOS nightly build00062** and only fits that exact build. RenkuOS's
+nightly release keeps only the latest build, so build00062 is mirrored here,
+unmodified, with RenkuOS's own checksum file:
+[RenkuOS-x86_64-20261025-build00062.iso](https://github.com/idumych/rchromium-renku/releases/download/preview-1/RenkuOS-x86_64-20261025-build00062.iso)
+([.sha256](https://github.com/idumych/rchromium-renku/releases/download/preview-1/RenkuOS-x86_64-20261025-build00062.iso.sha256)).
+The release notes explain how to install it and how to undo it.
+
 ## Install with pkgman
 
 R Chromium is published in the `pkgman.rainygirl.com` package repository.
