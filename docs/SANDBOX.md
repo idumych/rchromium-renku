@@ -18,11 +18,17 @@
   local Renku checkout (`~/Projects/renku-src`), with its test program, and
   the renderer calls it. The kernel and libroot, built from that branch on
   top of nightly build00062 (aae7d9f7), boot to the desktop on x86_64, and
-  `syscall_filter_test` passes all 8 cases, 10 runs out of 10
-  (2026-10-25). The change only adds: no syscall is renumbered and no
-  kernel structure member moves. Not yet run: the 32-bit compat entry,
-  arm64, and a sandboxed R Chromium. (Shutdown on that VM panics in the
-  TCP module, as the unmodified kernel does: Renku issue #167.)
+  `syscall_filter_test` passes all 9 cases, 10 runs out of 10
+  (2026-10-26). The change only adds: no syscall is renumbered and no
+  kernel structure member moves. R Chromium runs on it sandboxed: its
+  renderers drop to uid 65534 and to `BASIC | FILE_READ`, make no denied
+  syscall in normal browsing (checked with the filter's denial tracing
+  on), and render pages, Brave Shields included. That run found one gap,
+  now fixed: `getentropy()` is a generic syscall, which the table had
+  left in `SYSTEM`, so every renderer aborted at its first random number.
+  Not yet run: the 32-bit compat entry and arm64. (Shutdown on that VM
+  panics in the TCP module, as the unmodified kernel does: Renku issue
+  #167.)
 
 ## Stage 2: what the kernel needs
 
@@ -109,6 +115,10 @@ handled in the syscall itself, behind the same team flag:
   is the same as a read-only open.
 - `socketpair()` (AF_UNIX) stays in `BASIC`: Mojo needs it, and the pair
   reaches nothing outside the team.
+- Generic syscalls (`_kern_generic_syscall()`) are dispatched by
+  subsystem name. Only `getentropy()`'s (`random`, `RANDOM_GET_ENTROPY`)
+  is in `BASIC`; the name is checked inside the syscall, on the kernel's
+  copy of it, so another thread cannot change it after the check.
 
 ### What R Chromium would allow
 

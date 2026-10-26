@@ -79,7 +79,25 @@ This work was first written and tested on Linux, and ported here on
 - The shield appeared in the native toolbar with its per-tab badge, and its
   popup opened under the button.
 
-**None of this has been built or run on Haiku yet.** Two differences matter:
+**On Haiku** (Renku nightly build00062 x86_64 with the syscall filter,
+2026-10-26), sandboxed and multi-process: Brave Shields 1.0.9 loads, its
+service worker and content scripts run, its toolbar button shows the
+per-tab count, and its popup works. On adblock-tester.com it blocks 12
+requests and scores about 70 of 100; the checks it fails are URLs its
+rulesets (capped at 5,000 rules each) do not cover. Turning Shields off
+for a site lets every request through; turning it back on blocks them
+again. Getting there took:
+
+- DNR's `WebContentsHelper` on every WebContents (Chrome's `TabHelper`
+  owns one), without which `allowAllRequests` rules never apply;
+- navigations held until the start-up extensions and their rules have
+  loaded (`StartupNavigationThrottle`): the start page otherwise loaded
+  unfiltered and, with a rule that modifies request headers, hung;
+- two declarativeNetRequest fixes in Chromium (`port-shell-extensions.py`):
+  allow-listed frames survive ruleset updates, and are recorded at
+  `ReadyToCommitNavigation` as well as `DidFinishNavigation`.
+
+Two differences from that build matter:
 
 - **Processes.** The launchers no longer pass `--single-process` (see
   AGENTS.md, "Multi-process again"), so extensions get their own renderer
