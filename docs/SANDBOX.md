@@ -30,6 +30,10 @@
   panics in the TCP module, as the unmodified kernel does: Renku issue
   #167.)
 
+To try it on your own Haiku or Renku machine, `sandbox-kernel/` builds the
+filter against whatever release that machine runs and packages it as a
+replacement `haiku` package (see its README).
+
 ## Stage 2: what the kernel needs
 
 A team must be able to give up syscalls, irreversibly, for itself and
