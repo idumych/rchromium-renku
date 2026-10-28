@@ -129,8 +129,8 @@ Renku) and packages it as a replacement `haiku` system package. In Terminal
 on that machine:
 
 ```sh
-git clone --depth 1 -b extensions https://github.com/idumych/rchromium.git
-cd rchromium/sandbox-kernel
+git clone --depth 1 https://github.com/idumych/rchromium-renku.git
+cd rchromium-renku/sandbox-kernel
 ./build-sandbox-kernel.sh            # fetch the matching source, patch, build
 ./build-sandbox-kernel.sh install    # then reboot
 ./build-sandbox-kernel.sh test       # the filter's own test: 9 cases should pass

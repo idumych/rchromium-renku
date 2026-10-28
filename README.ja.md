@@ -112,8 +112,8 @@ rchromium https://news.naver.com
 マシンの Terminal で:
 
 ```sh
-git clone --depth 1 -b extensions https://github.com/idumych/rchromium.git
-cd rchromium/sandbox-kernel
+git clone --depth 1 https://github.com/idumych/rchromium-renku.git
+cd rchromium-renku/sandbox-kernel
 ./build-sandbox-kernel.sh            # 対応するソースを取得し、パッチを当ててビルド
 ./build-sandbox-kernel.sh install    # その後に再起動
 ./build-sandbox-kernel.sh test       # フィルタ自身のテスト。9 件すべて成功するはず

@@ -107,8 +107,8 @@ Renku에 제안 중)가 있는 커널에서는 기본 시스템 콜과 읽기 �
 Terminal에서:
 
 ```sh
-git clone --depth 1 -b extensions https://github.com/idumych/rchromium.git
-cd rchromium/sandbox-kernel
+git clone --depth 1 https://github.com/idumych/rchromium-renku.git
+cd rchromium-renku/sandbox-kernel
 ./build-sandbox-kernel.sh            # 맞는 소스를 받아 패치하고 빌드
 ./build-sandbox-kernel.sh install    # 그다음 재부팅
 ./build-sandbox-kernel.sh test       # 필터 자체 테스트. 9개 모두 통과해야 함
