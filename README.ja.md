@@ -100,6 +100,37 @@ rchromium https://news.naver.com
 - **メニュー** -- 検索可能なブックマークウィンドウを開きます。項目を
   ダブルクリックすると開きます。
 
+## レンダラーのサンドボックスを試す
+
+通常のシステムでは、R Chromium のレンダラーは root 権限を手放しますが、
+システムコールはすべて使えます。`restrict_syscalls()` フィルタ
+（RenkuOS/Source#186 で Renku に提案中）を持つカーネルでは、基本的な
+システムコールと読み取り専用のファイルアクセス以外も手放します。
+[サンドボックスカーネルキット](sandbox-kernel/)は、実行したシステム
+（R1/beta5、R1/beta6、Haiku master、Renku）向けにこのフィルタをビルドし、
+`haiku` システムパッケージの差し替えとしてパッケージにします。その
+マシンの Terminal で:
+
+```sh
+git clone --depth 1 -b extensions https://github.com/idumych/rchromium.git
+cd rchromium/sandbox-kernel
+./build-sandbox-kernel.sh            # 対応するソースを取得し、パッチを当ててビルド
+./build-sandbox-kernel.sh install    # その後に再起動
+./build-sandbox-kernel.sh test       # フィルタ自身のテスト。9 件すべて成功するはず
+```
+
+その後、いつも通り R Chromium を起動します。ログに `no restrict_syscalls()
+on this system` と出なくなれば有効です。ビルドにはネットワーク接続と約
+3 GB の空き容量が必要です。`./build-sandbox-kernel.sh restore` を実行して
+再起動すると、元のシステムパッケージに戻ります。新しいカーネルで起動
+できない場合は、起動時に Shift を押し、*Select system state* で以前の状態を
+選んでください。
+
+これまでに起動して確認したのは Renku x86_64 だけです。beta5 向けの
+バックポートと arm64 は未検証です。対応するソースの見つけ方とすべての
+オプションは [sandbox-kernel/README.md](sandbox-kernel/README.md)、設計は
+[docs/SANDBOX.md](docs/SANDBOX.md) を参照してください。
+
 ## アンインストール
 
 ```sh

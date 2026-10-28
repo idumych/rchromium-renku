@@ -96,6 +96,36 @@ rchromium https://news.naver.com
 - **별** -- 현재 페이지를 날짜 그룹("Today", ...) 아래에 북마크합니다.
 - **메뉴** -- 검색 가능한 북마크 창을 엽니다. 항목을 더블클릭하면 열립니다.
 
+## 렌더러 샌드박스 시험하기
+
+일반 시스템에서 R Chromium의 렌더러는 root 권한을 내려놓지만 시스템 콜은
+모두 쓸 수 있습니다. `restrict_syscalls()` 필터(RenkuOS/Source#186에서
+Renku에 제안 중)가 있는 커널에서는 기본 시스템 콜과 읽기 전용 파일 접근
+말고는 모두 내려놓습니다. [샌드박스 커널 키트](sandbox-kernel/)는 실행한
+시스템(R1/beta5, R1/beta6, Haiku master, Renku)에 맞춰 이 필터를 빌드하고,
+`haiku` 시스템 패키지를 대체하는 패키지로 만듭니다. 그 기기의
+Terminal에서:
+
+```sh
+git clone --depth 1 -b extensions https://github.com/idumych/rchromium.git
+cd rchromium/sandbox-kernel
+./build-sandbox-kernel.sh            # 맞는 소스를 받아 패치하고 빌드
+./build-sandbox-kernel.sh install    # 그다음 재부팅
+./build-sandbox-kernel.sh test       # 필터 자체 테스트. 9개 모두 통과해야 함
+```
+
+그다음 평소처럼 R Chromium을 실행합니다. 로그에 `no restrict_syscalls() on
+this system`이 더 이상 나오지 않으면 적용된 것입니다. 빌드에는 네트워크
+연결과 약 3 GB의 여유 공간이 필요합니다. `./build-sandbox-kernel.sh
+restore`를 실행하고 재부팅하면 원래 시스템 패키지로 돌아갑니다. 새 커널로
+부팅되지 않으면 부팅할 때 Shift를 누르고 *Select system state*에서 이전
+상태를 고르세요.
+
+지금까지 부팅해 확인한 것은 Renku x86_64뿐입니다. beta5 백포트와 arm64는
+검증되지 않았습니다. 맞는 소스를 찾는 방법과 모든 옵션은
+[sandbox-kernel/README.md](sandbox-kernel/README.md), 설계는
+[docs/SANDBOX.md](docs/SANDBOX.md)를 참고하세요.
+
 ## 제거
 
 ```sh

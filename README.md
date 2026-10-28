@@ -118,6 +118,35 @@ rchromium https://news.naver.com
 - **Menu** -- opens a searchable bookmarks window; double-click an entry to
   open it.
 
+## Test the renderer sandbox
+
+On a stock system, R Chromium's renderers drop root but can still make every
+syscall. On a kernel with the `restrict_syscalls()` filter (proposed for Renku
+in RenkuOS/Source#186), they also give up everything except basic syscalls
+and read-only file access. The [sandbox kernel kit](sandbox-kernel/) builds
+that filter for the system you run it on (R1/beta5, R1/beta6, Haiku master or
+Renku) and packages it as a replacement `haiku` system package. In Terminal
+on that machine:
+
+```sh
+git clone --depth 1 -b extensions https://github.com/idumych/rchromium.git
+cd rchromium/sandbox-kernel
+./build-sandbox-kernel.sh            # fetch the matching source, patch, build
+./build-sandbox-kernel.sh install    # then reboot
+./build-sandbox-kernel.sh test       # the filter's own test: 9 cases should pass
+```
+
+Then start R Chromium as usual. Its log should no longer say `no
+restrict_syscalls() on this system`. The build needs network access and about
+3 GB free. `./build-sandbox-kernel.sh restore` and a reboot put the original
+system package back. If the new kernel does not boot, hold Shift at boot and
+pick the previous state under *Select system state*.
+
+It has only been booted on Renku x86_64 so far. The beta5 backport and arm64
+are untested. See [sandbox-kernel/README.md](sandbox-kernel/README.md) for
+how it finds the matching source and every option, and
+[docs/SANDBOX.md](docs/SANDBOX.md) for the design.
+
 ## Uninstall
 
 ```sh
